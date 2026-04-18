@@ -4,13 +4,32 @@ import { MongoClient } from "mongodb";
 import { headers } from "next/headers";
 import { initializeUserBoard } from "../init-user-board";
 
-const client = new MongoClient(process.env.MONGODB_URI!);
-const db = client.db();
+// Module-level singleton so the connection is reused across hot reloads
+declare global {
+  var _mongoClient: MongoClient | undefined;
+}
+
+function getMongoClient(): MongoClient {
+  if (!process.env.MONGODB_URI) {
+    throw new Error("MONGODB_URI environment variable is not set");
+  }
+  if (!global._mongoClient) {
+    global._mongoClient = new MongoClient(process.env.MONGODB_URI);
+  }
+  return global._mongoClient;
+}
+
+const mongoClient = getMongoClient();
+
+// better-auth needs a connected client — connect() is idempotent if already connected
+await mongoClient.connect();
+
+const db = mongoClient.db();
 
 export const auth = betterAuth({
-  database: mongodbAdapter(db, {
-    client,
-  }),
+  database: mongodbAdapter(db),
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
   session: {
     cookieCache: {
       enabled: true,
