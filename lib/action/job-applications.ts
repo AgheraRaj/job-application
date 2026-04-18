@@ -234,6 +234,50 @@ export async function updateJobApplication(
   return { data: JSON.parse(JSON.stringify(updated)) };
 }
 
+export async function deleteColumn(columnId: string, boardId: string) {
+  const session = await getSession();
+
+  if (!session?.user) {
+    return { error: "Unauthorized" };
+  }
+
+  await connectDB();
+
+  // Verify board ownership
+  const board = await Board.findOne({
+    _id: boardId,
+    userId: session.user.id,
+  });
+
+  if (!board) {
+    return { error: "Board not found" };
+  }
+
+  const column = await Column.findOne({
+    _id: columnId,
+    boardId: boardId,
+  });
+
+  if (!column) {
+    return { error: "Column not found" };
+  }
+
+  // Delete all job applications in this column
+  await JobApplication.deleteMany({ columnId });
+
+  // Remove the column reference from the board
+  await Board.findByIdAndUpdate(boardId, {
+    $pull: { columns: columnId },
+  });
+
+  // Delete the column itself
+  await Column.findByIdAndDelete(columnId);
+
+  revalidatePath("/dashboard");
+
+  return { success: true };
+}
+
 export async function deleteJobApplication(id: string) {
   const session = await getSession();
 

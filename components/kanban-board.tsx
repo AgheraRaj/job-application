@@ -38,7 +38,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface KanbanBoardProps {
   board: Board;
@@ -77,11 +77,13 @@ function DroppableColumn({
   config,
   boardId,
   sortedColumns,
+  onDeleteColumn,
 }: {
   column: Column;
   config: ColConfig;
   boardId: string;
   sortedColumns: Column[];
+  onDeleteColumn: (columnId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: column._id,
@@ -119,7 +121,10 @@ function DroppableColumn({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end">
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => onDeleteColumn(column._id)}
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete Column
               </DropdownMenuItem>
@@ -191,7 +196,12 @@ function SortebleJobCard({
 
 const KanbanBoard = ({ board, userId }: KanbanBoardProps) => {
   const [activeId, setActiveId] = useState<string | null>(null);
-  const { columns, moveJob } = useBoard(board);
+  const [isMounted, setIsMounted] = useState(false);
+  const { columns, moveJob, deleteColumn } = useBoard(board);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const sortedColumns = columns?.sort((a, b) => a.order - b.order) || [];
 
@@ -306,6 +316,8 @@ const KanbanBoard = ({ board, userId }: KanbanBoardProps) => {
     .flatMap((col) => col.jobApplications || [])
     .find((job) => job._id === activeId);
 
+  if (!isMounted) return null;
+
   // console.log(columns[0].jobApplications)
   return (
     <DndContext
@@ -328,6 +340,7 @@ const KanbanBoard = ({ board, userId }: KanbanBoardProps) => {
                 config={config}
                 boardId={board._id}
                 sortedColumns={sortedColumns}
+                onDeleteColumn={deleteColumn}
               />
             );
           })}
